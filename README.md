@@ -1,207 +1,97 @@
-# IBM QRadar Ansible Collection
+# Ansible Role: Docker
 
-[![CI](https://zuul-ci.org/gated.svg)](https://dashboard.zuul.ansible.com/t/ansible/project/github.com/ansible-collections/ibm.qradar) <!--[![Codecov](https://img.shields.io/codecov/c/github/ansible-collections/ibm.qradar)](https://codecov.io/gh/ansible-collections/ibm.qradar)-->
+[![Build Status](https://travis-ci.org/geerlingguy/ansible-role-docker.svg?branch=master)](https://travis-ci.org/geerlingguy/ansible-role-docker)
 
-This is the [Ansible
-Collection](https://docs.ansible.com/ansible/latest/dev_guide/developing_collections.html)
-provided by the [Ansible Security Automation
-Team](https://github.com/ansible-security) for automating actions in [IBM
-QRadar SIEM](https://www.ibm.com/us-en/marketplace/ibm-qradar-siem).
+An Ansible Role that installs [Docker](https://www.docker.com) on Linux.
 
-This Collection is meant for distribution through
-[Ansible Galaxy](https://galaxy.ansible.com/) as is available for all
-[Ansible](https://github.com/ansible/ansible) users to utilize, contribute to,
-and provide feedback about.
+## Requirements
 
-<!--start requires_ansible-->
-## Ansible version compatibility
+None.
 
-This collection has been tested against following Ansible versions: **>=2.9,<2.11**.
+## Role Variables
 
-Plugins and modules within a collection may be tested with only specific Ansible versions.
-A collection may contain metadata that identifies these versions.
-PEP440 is the schema used to describe the versions of Ansible.
-<!--end requires_ansible-->
+Available variables are listed below, along with default values (see `defaults/main.yml`):
 
-## Collection Content
-<!--start collection content-->
-### Httpapi plugins
-Name | Description
---- | ---
-[ibm.qradar.qradar](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.qradar_httpapi.rst)|HttpApi Plugin for IBM QRadar
+    # Edition can be one of: 'ce' (Community Edition) or 'ee' (Enterprise Edition).
+    docker_edition: 'ce'
+    docker_package: "docker-{{ docker_edition }}"
+    docker_package_state: present
 
-### Modules
-Name | Description
---- | ---
-[ibm.qradar.deploy](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.deploy_module.rst)|Trigger a qradar configuration deployment
-[ibm.qradar.log_source_management](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.log_source_management_module.rst)|Manage Log Sources in QRadar
-[ibm.qradar.offense_action](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.offense_action_module.rst)|Take action on a QRadar Offense
-[ibm.qradar.offense_info](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.offense_info_module.rst)|Obtain information about one or many QRadar Offenses, with filter options
-[ibm.qradar.offense_note](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.offense_note_module.rst)|Create or update a QRadar Offense Note
-[ibm.qradar.rule](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.rule_module.rst)|Manage state of QRadar Rules, with filter options
-[ibm.qradar.rule_info](https://github.com/ansible-collections/ibm.qradar/blob/main/docs/ibm.qradar.rule_info_module.rst)|Obtain information about one or many QRadar Rules, with filter options
+The `docker_edition` should be either `ce` (Community Edition) or `ee` (Enterprise Edition). You can also specify a specific version of Docker to install using the distribution-specific format: Red Hat/CentOS: `docker-{{ docker_edition }}-<VERSION>`; Debian/Ubuntu: `docker-{{ docker_edition }}=<VERSION>`.
 
-<!--end collection content-->
+You can control whether the package is installed, uninstalled, or at the latest version by setting `docker_package_state` to `present`, `absent`, or `latest`, respectively. Note that the Docker daemon will be automatically restarted if the Docker package is updated. This is a side effect of flushing all handlers (running any of the handlers that have been notified by this and any other role up to this point in the play).
 
-## Installing this collection
+    docker_service_state: started
+    docker_service_enabled: true
+    docker_restart_handler_state: restarted
 
-You can install the IBM qradar collection with the Ansible Galaxy CLI:
+Variables to control the state of the `docker` service, and whether it should start on boot. If you're installing Docker inside a Docker container without systemd or sysvinit, you should set these to `stopped` and set the enabled variable to `no`.
 
-    ansible-galaxy collection install ibm.qradar
+    docker_install_compose: true
+    docker_compose_version: "1.26.0"
+    docker_compose_path: /usr/local/bin/docker-compose
 
-You can also include it in a `requirements.yml` file and install it with `ansible-galaxy collection install -r requirements.yml`, using the format:
+Docker Compose installation options.
+
+    docker_apt_release_channel: stable
+    docker_apt_arch: amd64
+    docker_apt_repository: "deb [arch={{ docker_apt_arch }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} {{ docker_apt_release_channel }}"
+    docker_apt_ignore_key_error: True
+    docker_apt_gpg_key: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+
+(Used only for Debian/Ubuntu.) You can switch the channel to `edge` if you want to use the Edge release.
+
+You can change `docker_apt_gpg_key` to a different url if you are behind a firewall or provide a trustworthy mirror.
+Usually in combination with changing `docker_apt_repository` as well.
+
+    docker_yum_repo_url: https://download.docker.com/linux/centos/docker-{{ docker_edition }}.repo
+    docker_yum_repo_enable_edge: '0'
+    docker_yum_repo_enable_test: '0'
+    docker_yum_gpg_key: https://download.docker.com/linux/centos/gpg
+
+(Used only for RedHat/CentOS.) You can enable the Edge or Test repo by setting the respective vars to `1`.
+
+You can change `docker_yum_gpg_key` to a different url if you are behind a firewall or provide a trustworthy mirror.
+Usually in combination with changing `docker_yum_repository` as well.
+
+    docker_users:
+      - user1
+      - user2
+
+A list of system users to be added to the `docker` group (so they can use Docker on the server).
+
+## Use with Ansible (and `docker` Python library)
+
+Many users of this role wish to also use Ansible to then _build_ Docker images and manage Docker containers on the server where Docker is installed. In this case, you can easily add in the `docker` Python library using the `geerlingguy.pip` role:
 
 ```yaml
----
-collections:
-  - name: ibm.qradar
+- hosts: all
+
+  vars:
+    pip_install_packages:
+      - name: docker
+
+  roles:
+    - geerlingguy.pip
+    - geerlingguy.docker
 ```
 
-## Using the IBM QRadar Ansible Collection
+## Dependencies
 
-An example for using this collection to manage a log source with [IBM QRadar](https://www.ibm.com/security/security-intelligence/qradar) is as follows.
+None.
 
-`inventory.ini` (Note the password should be managed by a [Vault](https://docs.ansible.com/ansible/latest/user_guide/vault.html) for a production environment.
-```
-[qradar]
-qradar.example.com
+## Example Playbook
 
-[qradar:vars]
-ansible_network_os=ibm.qradar.qradar
-ansible_user=admin
-ansible_httpapi_pass=SuperSekretPassword
-ansible_httpapi_use_ssl=yes
-ansible_httpapi_validate_certs=yes
-ansible_connection=httpapi
+```yaml
+- hosts: all
+  roles:
+    - geerlingguy.docker
 ```
 
-**NOTE**: For Ansible 2.9, you may not see deprecation warnings when you run your playbooks with this collection. Use this documentation to track when a module is deprecated.
+## License
 
-### Using the modules with Fully Qualified Collection Name (FQCN)
+MIT / BSD
 
-With [Ansible
-Collections](https://docs.ansible.com/ansible/latest/dev_guide/developing_collections.html)
-there are various ways to utilize them either by calling specific Content from
-the Collection, such as a module, by its Fully Qualified Collection Name (FQCN)
-as we'll show in this example or by defining a Collection Search Path as the
-examples below will display.
+## Author Information
 
-I should be noted that the FQCN method is the recommended method but the
-shorthand options listed below exist for convenience.
-
-`qradar_with_collections_example.yml`
-```
----
-- name: Testing URI manipulation of QRadar with FQCN
-  hosts: qradar
-  gather_facts: false
-  tasks:
-    - name: create log source
-      ibm.qradar.log_source_management:
-        name: "Ansible Collections Example Log Source"
-        type_name: "Linux OS"
-        state: present
-        description: "Ansible Collections Example Log Source Description"
-```
-
-### Define your collection search path at the Play level
-
-Below we specify our collection at the
-[Play](https://docs.ansible.com/ansible/latest/user_guide/playbooks_intro.html)
-level which allows us to use the `log_source_management` module without
-the need for the FQCN for each task.
-
-`qradar_with_collections_example.yml`
-```
----
-- name: Testing URI manipulation of QRadar
-  hosts: qradar
-  gather_facts: false
-  collections:
-    - ibm.qradar
-  tasks:
-    - name: create log source
-      log_source_management:
-        name: "Ansible Collections Example Log Source"
-        type_name: "Linux OS"
-        state: present
-        description: "Ansible Collections Example Log Source Description"
-```
-
-### Define your collection search path at the Block level
-
-Another option for Collection use is below. Here we use the
-[`block`](https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html)
-level keyword instead of [Play](https://docs.ansible.com/ansible/latest/user_guide/playbooks_intro.html)
-level as with the previous example. In this scenario we are able to use the
-`log_source_management` module without the need for the FQCN for each
-task but with an optionally more specific scope of Collection Search Path than
-specifying at the Play level.
-
-`qradar_with_collections_block_example.yml`
-```
----
-- name: Testing URI manipulation of QRadar
-  hosts: qradar
-  gather_facts: false
-  tasks:
-    - name: collection namespace block
-      block:
-        - name: create log source
-          log_source_management:
-            name: "Ansible Collections Example Log Source"
-            type_name: "Linux OS"
-            state: present
-            description: "Ansible Collections Example Log Source Description"
-      collections:
-        - ibm.qradar
-```
-
-### Directory Structure
-
-* `docs/`: local documentation for the collection
-* `license.txt`: optional copy of license(s) for this collection
-* `galaxy.yml`: source data for the MANIFEST.json that will be part of the collection package
-* `playbooks/`: playbooks reside here
-  * `tasks/`: this holds 'task list files' for `include_tasks`/`import_tasks` usage
-* `plugins/`: all ansible plugins and modules go here, each in its own subdir
-  * `modules/`: ansible modules
-  * `lookups/`: lookup plugins
-  * `filters/`: Jinja2 filter plugins
-  * ... rest of plugins
-* `README.md`: information file (this file)
-* `roles/`: directory for ansible roles
-* `tests/`: tests for the collection's content
-
-## Contributing to this collection
-
-We welcome community contributions to this collection. If you find problems, please open an issue or create a PR against the [IBM QRadar collection repository](https://github.com/ansible-collections/ibm.qradar). See [Contributing to Ansible-maintained collections](https://docs.ansible.com/ansible/devel/community/contributing_maintained_collections.html#contributing-maintained-collections) for complete details.
-
-
-See the [Ansible Community Guide](https://docs.ansible.com/ansible/latest/community/index.html) for details on contributing to Ansible.
-
-### Code of Conduct
-This collection follows the Ansible project's
-[Code of Conduct](https://docs.ansible.com/ansible/devel/community/code_of_conduct.html).
-Please read and familiarize yourself with this document.
-
-## Release notes
-
-Release notes are available [here](https://github.com/ansible-collections/ibm.qradar/blob/main/changelogs/CHANGELOG.rst).
-
-## Roadmap
-
-<!-- Optional. Include the roadmap for this collection, and the proposed release/versioning strategy so users can anticipate the upgrade/update cycle. -->
-
-## More information
-
-- [Ansible Collection overview](https://github.com/ansible-collections/overview)
-- [Ansible User guide](https://docs.ansible.com/ansible/latest/user_guide/index.html)
-- [Ansible Developer guide](https://docs.ansible.com/ansible/latest/dev_guide/index.html)
-- [Ansible Community code of conduct](https://docs.ansible.com/ansible/latest/community/code_of_conduct.html)
-
-## Licensing
-
-GNU General Public License v3.0 or later.
-
-See [LICENSE](https://www.gnu.org/licenses/gpl-3.0.txt) to see the full text.
+This role was created in 2017 by [Jeff Geerling](https://www.jeffgeerling.com/), author of [Ansible for DevOps](https://www.ansiblefordevops.com/).
